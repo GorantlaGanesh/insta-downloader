@@ -25,7 +25,8 @@ def process():
     url = data.get('url', '')
 
     try:
-        shortcode = url.split('/reel/')[1].split('/')[0]
+        url = url.strip().split('?')[0]
+        shortcode = url.split('/reel/')[1].strip('/')
         post = instaloader.Post.from_shortcode(L.context, shortcode)
         video_url = post.video_url
         caption = post.caption or ''
