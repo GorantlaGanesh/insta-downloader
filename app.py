@@ -3,6 +3,7 @@ import instaloader
 import os
 import subprocess
 import re
+import requests as req
 
 app = Flask(__name__)
 L = instaloader.Instaloader(download_video_thumbnails=False, save_metadata=False)
@@ -10,9 +11,7 @@ L = instaloader.Instaloader(download_video_thumbnails=False, save_metadata=False
 BRAND_NAME = "@TRENDYGAMMA"
 
 def clean_text(text):
-    # Remove emojis and special characters that break FFmpeg
     text = re.sub(r'[^\x00-\x7F]+', '', text)
-    # Remove special FFmpeg characters
     text = text.replace("'", "").replace('"', '').replace(':', '').replace('\\', '')
     return text.strip()[:50]
 
@@ -42,7 +41,6 @@ def add_title():
     video_url = data.get('video_url', '')
     raw_title = data.get('title', 'Watch This!')
 
-    # Clean text for FFmpeg
     title = clean_text(raw_title) or 'Watch This'
     brand = clean_text(BRAND_NAME) or 'TRENDYGAMMA'
 
@@ -50,13 +48,13 @@ def add_title():
     output_path = f'/tmp/output_{os.urandom(4).hex()}.mp4'
 
     try:
-        # Download video
-        subprocess.run(
-            ['wget', '-q', '--no-check-certificate', '-O', input_path, video_url],
-            check=True, timeout=60
-        )
+        # Download video using requests
+        response = req.get(video_url, timeout=60, stream=True)
+        with open(input_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
 
-        # Add title top + brand bottom
+        # Add title + brand with FFmpeg
         drawtext = (
             f"drawtext=text='{title}':fontsize=40:fontcolor=white"
             f":x=(w-text_w)/2:y=40:box=1:boxcolor=black@0.6:boxborderw=8,"
@@ -74,8 +72,6 @@ def add_title():
         file_url = f"{request.host_url}files/{os.path.basename(output_path)}"
         return jsonify({"success": True, "video_url": file_url})
 
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": str(e)}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
