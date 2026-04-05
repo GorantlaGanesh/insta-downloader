@@ -8,7 +8,7 @@ import requests as req
 app = Flask(__name__)
 L = instaloader.Instaloader(download_video_thumbnails=False, save_metadata=False)
 
-BRAND_NAME = "@TRENDYGAMMA"
+BRAND_NAME = "@AURAEDITZ"
 
 def clean_text(text):
     text = re.sub(r'[^\x00-\x7F]+', '', text)
@@ -23,7 +23,6 @@ def health():
 def process():
     data = request.json
     url = data.get('url', '')
-
     try:
         url = url.strip().split('?')[0]
         shortcode = url.split('/reel/')[1].strip('/')
@@ -33,23 +32,36 @@ def process():
         raw_title = caption.split('\n')[0][:60] if caption else 'Watch This'
 
         title = clean_text(raw_title) or 'Watch This'
-        brand = clean_text(BRAND_NAME) or 'TRENDYGAMMA'
+        brand = clean_text(BRAND_NAME) or 'AURAEDITZ'
 
         input_path = '/tmp/input.mp4'
         output_path = f'/tmp/output_{os.urandom(4).hex()}.mp4'
 
-        # Download video using requests (no wget!)
         response = req.get(video_url, timeout=60, stream=True)
         with open(input_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
-        # Add title + brand with FFmpeg
+        # Title: medium size, fade in from top
+        # Brand: slides in from right, glowing white
         drawtext = (
-            f"drawtext=text='{title}':fontsize=40:fontcolor=white"
-            f":x=(w-text_w)/2:y=40:box=1:boxcolor=black@0.6:boxborderw=8,"
-            f"drawtext=text='{brand}':fontsize=36:fontcolor=white"
-            f":x=(w-text_w)/2:y=h-60:box=1:boxcolor=black@0.6:boxborderw=8"
+            # Title - medium font, fade in effect
+            f"drawtext=text='{title}'"
+            f":fontsize=36"
+            f":fontcolor=white"
+            f":x=(w-text_w)/2"
+            f":y=40"
+            f":box=1:boxcolor=black@0.5:boxborderw=8"
+            f":alpha='if(lt(t,1),t,1)'"
+            f","
+            # Brand - slides in from right
+            f"drawtext=text='{brand}'"
+            f":fontsize=32"
+            f":fontcolor=yellow"
+            f":x='if(lt(t,1),w-text_w*(t),w-text_w-20)'"
+            f":y=h-55"
+            f":box=1:boxcolor=black@0.6:boxborderw=8"
+            f":alpha='if(lt(t,1),t,1)'"
         )
 
         subprocess.run([
