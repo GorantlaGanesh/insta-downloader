@@ -13,10 +13,23 @@ app.post('/download', (req, res) => {
 
   const filename = `video_${Date.now()}.mp4`;
   const filepath = `/tmp/${filename}`;
-  const cmd = `yt-dlp -o "${filepath}" --merge-output-format mp4 "${url}"`;
 
-  exec(cmd, (error, stdout, stderr) => {
-    if (error) return res.status(500).json({ error: 'Download failed', details: stderr });
+  const cmd = `yt-dlp \
+    --no-check-certificate \
+    --add-header "User-Agent:Mozilla/5.0" \
+    --add-header "Accept-Language:en-US,en;q=0.9" \
+    -o "${filepath}" \
+    --merge-output-format mp4 \
+    "${url}"`;
+
+  exec(cmd, { timeout: 60000 }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(stderr);
+      return res.status(500).json({ 
+        error: 'Download failed', 
+        details: stderr 
+      });
+    }
     const fileUrl = `${req.protocol}://${req.get('host')}/files/${filename}`;
     res.json({ success: true, video_url: fileUrl, filename });
   });
