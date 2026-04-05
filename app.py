@@ -19,36 +19,25 @@ def clean_text(text):
 def health():
     return jsonify({"status": "ok"})
 
-@app.route('/download', methods=['POST'])
-def download():
+@app.route('/process', methods=['POST'])
+def process():
     data = request.json
     url = data.get('url', '')
-    shortcode = url.split('/reel/')[1].split('/')[0]
-    post = instaloader.Post.from_shortcode(L.context, shortcode)
-    video_url = post.video_url
-    caption = post.caption or ''
-    title = caption.split('\n')[0][:60] if caption else 'Watch This!'
-    return jsonify({
-        "success": True,
-        "video_url": video_url,
-        "caption": caption,
-        "title": title
-    })
-
-@app.route('/add-title', methods=['POST'])
-def add_title():
-    data = request.json
-    video_url = data.get('video_url', '')
-    raw_title = data.get('title', 'Watch This!')
-
-    title = clean_text(raw_title) or 'Watch This'
-    brand = clean_text(BRAND_NAME) or 'TRENDYGAMMA'
-
-    input_path = '/tmp/input.mp4'
-    output_path = f'/tmp/output_{os.urandom(4).hex()}.mp4'
 
     try:
-        # Download video using requests
+        shortcode = url.split('/reel/')[1].split('/')[0]
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        video_url = post.video_url
+        caption = post.caption or ''
+        raw_title = caption.split('\n')[0][:60] if caption else 'Watch This'
+
+        title = clean_text(raw_title) or 'Watch This'
+        brand = clean_text(BRAND_NAME) or 'TRENDYGAMMA'
+
+        input_path = '/tmp/input.mp4'
+        output_path = f'/tmp/output_{os.urandom(4).hex()}.mp4'
+
+        # Download video using requests (no wget!)
         response = req.get(video_url, timeout=60, stream=True)
         with open(input_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
@@ -70,7 +59,12 @@ def add_title():
         ], check=True, timeout=120)
 
         file_url = f"{request.host_url}files/{os.path.basename(output_path)}"
-        return jsonify({"success": True, "video_url": file_url})
+        return jsonify({
+            "success": True,
+            "video_url": file_url,
+            "title": raw_title,
+            "caption": caption
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
