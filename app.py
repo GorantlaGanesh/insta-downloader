@@ -1,12 +1,10 @@
 from flask import Flask, request, jsonify, send_from_directory
-import instaloader
 import os
 import subprocess
 import re
 import requests as req
 
 app = Flask(__name__)
-L = instaloader.Instaloader(download_video_thumbnails=False, save_metadata=False)
 
 BRAND_NAME = "@AURAEDITZ"
 
@@ -22,14 +20,28 @@ def health():
 @app.route('/process', methods=['POST'])
 def process():
     data = request.json
-    url = data.get('url', '')
+    url = data.get('url', '').strip()
+
     try:
-        url = url.strip().split('?')[0]
-        shortcode = url.split('/reel/')[1].strip('/')
-        post = instaloader.Post.from_shortcode(L.context, shortcode)
-        video_url = post.video_url
-        caption = post.caption or ''
-        raw_title = caption.split('\n')[0][:60] if caption else 'Watch This'
+        # Use Cobalt API - no Instagram login needed!
+        cobalt = req.post(
+            'https://api.cobalt.tools/',
+            json={"url": url},
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+        result = cobalt.json()
+        video_url = result.get('url')
+
+        if not video_url:
+            return jsonify({"error": "Could not get video URL"}), 500
+
+        # Use filename as title
+        raw_title = "Watch This"
+        caption = ""
 
         title = clean_text(raw_title) or 'Watch This'
         brand = clean_text(BRAND_NAME) or 'AURAEDITZ'
@@ -37,15 +49,14 @@ def process():
         input_path = '/tmp/input.mp4'
         output_path = f'/tmp/output_{os.urandom(4).hex()}.mp4'
 
+        # Download video
         response = req.get(video_url, timeout=60, stream=True)
         with open(input_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
-        # Title: medium size, fade in from top
-        # Brand: slides in from right, glowing white
+        # Title fade in + Brand slide in
         drawtext = (
-            # Title - medium font, fade in effect
             f"drawtext=text='{title}'"
             f":fontsize=36"
             f":fontcolor=white"
@@ -54,7 +65,6 @@ def process():
             f":box=1:boxcolor=black@0.5:boxborderw=8"
             f":alpha='if(lt(t,1),t,1)'"
             f","
-            # Brand - slides in from right
             f"drawtext=text='{brand}'"
             f":fontsize=32"
             f":fontcolor=yellow"
