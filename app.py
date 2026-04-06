@@ -16,10 +16,14 @@ def get_loader():
         save_metadata=False,
         quiet=True
     )
-    L.context._session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-        'Accept-Language': 'en-US,en;q=0.9',
-    })
+    user = os.environ.get('INSTAGRAM_USER', '')
+    passwd = os.environ.get('INSTAGRAM_PASS', '')
+    if user and passwd:
+        try:
+            L.login(user, passwd)
+            print(f"Logged in as {user}")
+        except Exception as e:
+            print(f"Login failed: {e}")
     return L
 
 def clean_text(text):
@@ -40,7 +44,6 @@ def process():
         url = url.split('?')[0]
         shortcode = url.split('/reel/')[1].strip('/')
 
-        # Fresh loader each request
         L = get_loader()
         time.sleep(2)
         post = instaloader.Post.from_shortcode(L.context, shortcode)
