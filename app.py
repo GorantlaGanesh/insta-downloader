@@ -62,25 +62,43 @@ def process():
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
+        # === ANIMATED WATERMARK EFFECTS ===
+        # 1. Title: fades in from top with slide-down effect
+        # 2. @AURAEDITZ: scrolls in from right, pulses color between white and gold,
+        #    with glow shadow underneath for depth
+
         drawtext = (
+            # --- Title text: slides down from y=-50 to y=40 over 0.6s, fades in ---
             f"drawtext=text='{title}'"
-            f":fontsize=36:fontcolor=white"
-            f":x=(w-text_w)/2:y=40"
-            f":box=1:boxcolor=black@0.5:boxborderw=8"
-            f":alpha='if(lt(t,1),t,1)'"
+            f":fontsize=34:fontcolor=white"
+            f":x=(w-text_w)/2"
+            f":y='if(lt(t,0.6), -50 + (90*(t/0.6)), 40)'"
+            f":box=1:boxcolor=black@0.55:boxborderw=10"
+            f":alpha='if(lt(t,0.6), t/0.6, 1)'"
             f","
+            # --- Shadow/glow layer for @AURAEDITZ (slightly offset, orange) ---
             f"drawtext=text='{brand}'"
-            f":fontsize=32:fontcolor=yellow"
-            f":x='if(lt(t,1),w-text_w*(t),w-text_w-20)'"
-            f":y=h-55"
-            f":box=1:boxcolor=black@0.6:boxborderw=8"
-            f":alpha='if(lt(t,1),t,1)'"
+            f":fontsize=36:fontcolor=0xFF6600"
+            f":x='if(lt(t,1.0), w+text_w - (w+2*text_w)*(t/1.0), w-text_w-18)+2'"
+            f":y=h-58+2"
+            f":alpha='if(lt(t,1.0), t/1.0, 0.6)'"
+            f","
+            # --- Main @AURAEDITZ: scrolls in from right over 1s, then pulses gold<->white ---
+            f"drawtext=text='{brand}'"
+            f":fontsize=36"
+            # pulse color: alternates between gold and white using sin wave after scroll-in
+            f":fontcolor_expr='if(lt(t\\,1.0)\\, 0xFFD700\\, if(lt(mod(t-1.0\\,1.2)\\,0.6)\\, 0xFFD700\\, 0xFFFFFF))'"
+            f":x='if(lt(t,1.0), w+text_w - (w+2*text_w)*(t/1.0), w-text_w-18)'"
+            f":y=h-58"
+            f":box=1:boxcolor=black@0.65:boxborderw=10"
+            f":alpha='if(lt(t,1.0), t/1.0, 1)'"
         )
 
         subprocess.run([
             'ffmpeg', '-y', '-i', input_path,
             '-vf', drawtext,
             '-codec:a', 'copy',
+            '-preset', 'fast',
             output_path
         ], check=True, timeout=120)
 
